@@ -22,5 +22,5 @@ jobs:
         run: docker login --username=${{ secrets.DOCKERHUB_USER }} --password ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Push the Docker Image
         run: |
-          docker push yufeiyohi/dedao-dl:${{ env.BUILD_DATETIME }}
+          # docker push yufeiyohi/dedao-dl:${{ env.BUILD_DATETIME }}
           docker push yufeiyohi/dedao-dl:latest
