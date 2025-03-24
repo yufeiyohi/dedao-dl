@@ -5,7 +5,7 @@ LABEL stage=gobuilder
 WORKDIR /build
 # RUN adduser -u 10001 -D app-runner
 
-ENV GOPROXY https://goproxy.cn
+# ENV GOPROXY https://goproxy.cn
 COPY go.mod go.sum ./
 RUN go mod download
 
