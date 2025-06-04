@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"errors"
 
@@ -22,6 +23,12 @@ var loginCmd = &cobra.Command{
 	Short: "登录得到 pc 端 https://www.dedao.cn",
 	Long:  `使用 dedao-dl login to login https://www.dedao.cn`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// 确保配置初始化
+		err := config.Instance.Init()
+		if err != nil && err.Error() != "未登陆" && !strings.Contains(err.Error(), "存在登录的用户") {
+			return err
+		}
+
 		if qr {
 			err := app.LoginByQr()
 			return err
@@ -37,7 +44,6 @@ var loginCmd = &cobra.Command{
 			err := app.LoginByCookie(Cookie)
 			return err
 		}
-
 	},
 
 	PostRun: func(cmd *cobra.Command, args []string) {
@@ -97,9 +103,7 @@ func init() {
 func who() {
 	activeUser := config.Instance.ActiveUser()
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"UID", "姓名", "头像"})
-	table.SetAutoFormatHeaders(true)
-	table.SetAutoWrapText(false)
+	table.Header([]string{"UID", "姓名", "头像"})
 	table.Append([]string{activeUser.UIDHazy, activeUser.Name, activeUser.Avatar})
 	table.Render()
 }
@@ -107,9 +111,7 @@ func who() {
 // users get login user list
 func users() {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"#", "UID", "姓名", "头像"})
-	table.SetAutoFormatHeaders(true)
-	table.SetAutoWrapText(false)
+	table.Header([]string{"#", "UID", "姓名", "头像"})
 	for i, user := range config.Instance.Users {
 		table.Append([]string{strconv.Itoa(i), user.UIDHazy, user.Name, user.Avatar})
 	}

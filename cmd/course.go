@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"
 	"github.com/yann0917/dedao-dl/cmd/app"
 	"github.com/yann0917/dedao-dl/utils"
@@ -92,8 +93,7 @@ func courseType() (err error) {
 		return
 	}
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"#", "名称", "统计", "分类标签"})
-	table.SetAutoWrapText(false)
+	table.Header([]string{"#", "名称", "统计", "分类标签"})
 
 	for i, p := range list.Data.List {
 
@@ -122,8 +122,7 @@ func courseInfo(id int) (err error) {
 	fmt.Fprint(out, "课程亮点："+info.ClassInfo.Highlight+"\n")
 	fmt.Fprintln(out)
 
-	table.SetHeader([]string{"#", "ID", "章节", "讲数", "更新时间", "是否更新完成"})
-	table.SetAutoWrapText(false)
+	table.Header([]string{"#", "ID", "章节", "讲数", "更新时间", "是否更新完成"})
 
 	if len(info.ChapterList) > 0 {
 		for i, p := range info.ChapterList {
@@ -165,16 +164,26 @@ func courseList(category string) (err error) {
 	total, reading, done, unread := len(list.List), 0, 0, 0
 
 	out := os.Stdout
-	table := tablewriter.NewWriter(out)
-	table.SetHeader([]string{"#", "ID", "课程名称", "作者", "购买日期", "价格", "学习进度"})
-	table.SetAutoWrapText(false)
+	table := tablewriter.NewTable(out, tablewriter.WithConfig(tablewriter.Config{
+		Row: tw.CellConfig{
+			Formatting: tw.CellFormatting{
+				AutoWrap:  tw.WrapBreak, // Break words to fit
+				Alignment: tw.AlignLeft, // Left-align rows
+			},
+			ColMaxWidths: tw.CellWidth{Global: 64},
+		},
+	}))
+	table.Header([]string{"#", "ID", "课程名称", "作者", "购买日期", "价格", "学习进度", "备注"})
 
 	for i, p := range list.List {
-		classID := ""
+		classID, remark := "", ""
 		switch category {
 		case app.CateAce:
 			fallthrough
 		case app.CateAudioBook:
+			if p.Type == 1013 {
+				remark = "名家讲书"
+			}
 			fallthrough
 		case app.CateEbook:
 			classID = strconv.Itoa(p.ID)
@@ -186,6 +195,7 @@ func courseList(category string) (err error) {
 			utils.Unix2String(int64(p.CreateTime)),
 			p.Price,
 			strconv.Itoa(p.Progress) + "%",
+			remark,
 		})
 		if p.Progress == 0 {
 			unread++

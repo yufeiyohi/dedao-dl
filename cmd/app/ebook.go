@@ -16,7 +16,13 @@ func EbookDetail(id int) (detail *services.EbookDetail, err error) {
 	if err != nil {
 		return
 	}
-	enID := courseDetail["enid"].(string)
+	enID := courseDetail.Enid
+	detail, err = getService().EbookDetail(enID)
+
+	return
+}
+
+func EbookDetailByEnID(enID string) (detail *services.EbookDetail, err error) {
 	detail, err = getService().EbookDetail(enID)
 
 	return
@@ -56,7 +62,7 @@ func EbookPage(enID string) (info *services.EbookInfo, svgContent utils.SvgConte
 				wgp.Done()
 			}()
 			index, count, offset := 0, 20, 0
-			svgList, err1 := generateEbookPages(order.ChapterID, token.Token, index, count, offset)
+			svgList, err1 := generateEbookPages(enID, order.ChapterID, token.Token, index, count, offset)
 			if err1 != nil {
 				err = err1
 				return
@@ -73,31 +79,69 @@ func EbookPage(enID string) (info *services.EbookInfo, svgContent utils.SvgConte
 	return
 }
 
-func generateEbookPages(chapterID, token string, index, count, offset int) (svgList []string, err error) {
-	fmt.Printf("chapterID:%#v\n", chapterID)
+func generateEbookPages(enid, chapterID, token string, index, count, offset int) (svgList []string, err error) {
+	// Try to load from cache first
+	if cachedPages, found := services.LoadFromCache(enid, chapterID); found {
+		fmt.Printf("使用缓存内容：%s\n", chapterID)
+		return cachedPages, nil
+	}
+
+	fmt.Printf("下载章节 %s\n", chapterID)
 	pageList, err := getService().EbookPages(chapterID, token, index, count, offset)
 	if err != nil {
 		return
 	}
 
+	// // 创建用于保存原始SVG内容的目录
+	// debugDir, err1 := utils.Mkdir(utils.OutputDir, "Debug", "SVG", enid)
+	// if err1 != nil {
+	// 	fmt.Printf("创建调试目录失败: %v\n", err1)
+	// 	// 继续执行，不要因为调试目录创建失败而中断主流程
+	// }
+
 	for _, item := range pageList.Pages {
 		desContents := DecryptAES(item.Svg)
 		svgList = append(svgList, desContents)
+
+		// // 保存原始SVG内容到文件，用于调试
+		// if debugDir != "" {
+		// 	debugFileName := fmt.Sprintf("%s_%d_%d.svg", chapterID, index, i)
+		// 	debugFilePath, err3 := utils.FilePath(filepath.Join(debugDir, debugFileName), "", false)
+		// 	if err3 != nil {
+		// 		fmt.Printf("创建调试文件路径失败: %v\n", err3)
+		// 		continue
+		// 	}
+		// 	// 写入文件
+		// 	if err2 := utils.WriteFileWithTrunc(debugFilePath, desContents); err2 != nil {
+		// 		fmt.Printf("保存调试SVG文件失败: %v\n", err2)
+		// 	} else {
+		// 		fmt.Printf("已保存调试SVG文件: %s\n", debugFilePath)
+		// 	}
+		// }
 	}
-	// fmt.Printf("IsEnd:%#v\n", pageList.IsEnd)
+
 	if !pageList.IsEnd {
 		index += count
 		count = 20
-		list, err1 := generateEbookPages(chapterID, token, index, count, offset)
+		fmt.Printf("下载章节 %s 的更多页面 (索引: %d)\n", chapterID, index)
+		list, err1 := generateEbookPages(enid, chapterID, token, index, count, offset)
 		if err1 != nil {
 			err = err1
 			return
 		}
 
 		svgList = append(svgList, list...)
+	} else {
+		fmt.Printf("章节 %s 下载完成 (共 %d 页)\n", chapterID, len(svgList))
 	}
-	// FIXME: debug
-	// err = utils.SaveFile(chapterID, "", strings.Join(svgList, "\n"))
+
+	// Save to cache
+	if err := services.SaveToCache(enid, chapterID, svgList); err != nil {
+		fmt.Printf("警告: 无法缓存章节 %s: %v\n", chapterID, err)
+	} else {
+		fmt.Printf("已缓存章节 %s\n", chapterID)
+	}
+
 	return
 }
 
